@@ -48,6 +48,7 @@
             class="w-44 p-1"
             :options="[
               { label: __(''), value: '' },
+              { label: __('FreePBX'), value: 'FreePBX' },
               { label: __('Twilio'), value: 'Twilio' },
               { label: __('Exotel'), value: 'Exotel' },
             ]"
@@ -154,6 +155,53 @@
           />
         </div>
       </div>
+      <div
+        v-if="isEnabled('freepbx')"
+        class="h-px border-t mx-2 border-outline-elevation-2"
+      />
+      <div
+        v-if="isEnabled('freepbx')"
+        class="flex items-center justify-between gap-8 py-3 pl-2 pr-1"
+      >
+        <div class="flex flex-col">
+          <div class="text-p-base-medium text-ink-gray-7 truncate">
+            {{ __('FreePBX Extension') }}
+          </div>
+          <div class="text-p-sm text-ink-gray-5">
+            {{ __('The WebRTC extension this browser registers as.') }}
+          </div>
+        </div>
+        <div>
+          <FormControl
+            v-model="telephonyAgent.doc.freepbx_extension"
+            class="flex-1 truncate w-44 p-1"
+            :placeholder="__('e.g. 305')"
+            placement="bottom-end"
+          />
+        </div>
+      </div>
+      <div
+        v-if="isEnabled('freepbx')"
+        class="flex items-center justify-between gap-8 py-3 pl-2 pr-1"
+      >
+        <div class="flex flex-col">
+          <div class="text-p-base-medium text-ink-gray-7 truncate">
+            {{ __('FreePBX Extension Password') }}
+          </div>
+          <div class="text-p-sm text-ink-gray-5">
+            {{ __('The extension secret. Stored encrypted.') }}
+          </div>
+        </div>
+        <div>
+          <FormControl
+            v-model="telephonyAgent.doc.freepbx_password"
+            type="password"
+            class="flex-1 truncate w-44 p-1"
+            :placeholder="__('Enter extension password')"
+            placement="bottom-end"
+          />
+        </div>
+      </div>
 
       <div
         v-if="isManager()"
@@ -181,6 +229,33 @@
             isEnabled('twilio') ? __('Update Configuration') : __('Configure')
           "
           @click="emit('updateStep', 'twilio-settings')"
+        />
+      </div>
+
+      <div
+        v-if="isManager()"
+        class="h-px border-t mx-2 border-outline-elevation-2"
+      />
+
+      <div
+        v-if="isManager()"
+        class="flex items-center justify-between py-3 px-2"
+      >
+        <div class="flex flex-col gap-1">
+          <span class="text-base-medium text-ink-gray-8">
+            {{ __('FreePBX') }}
+          </span>
+          <span class="text-p-sm text-ink-gray-6">
+            {{
+              __('Configure your FreePBX WebRTC telephony integration settings here')
+            }}
+          </span>
+        </div>
+        <Button
+          :label="
+            isEnabled('freepbx') ? __('Update Configuration') : __('Configure')
+          "
+          @click="emit('updateStep', 'freepbx-settings')"
         />
       </div>
 

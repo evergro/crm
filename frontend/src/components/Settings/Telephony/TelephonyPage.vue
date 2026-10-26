@@ -3,6 +3,10 @@
     v-if="step === 'telephony-settings'"
     @updateStep="updateStep"
   />
+  <FreePBXSettings
+    v-else-if="step === 'freepbx-settings'"
+    @updateStep="updateStep"
+  />
   <TwilioSettings
     v-else-if="step === 'twilio-settings'"
     @updateStep="updateStep"
@@ -16,6 +20,7 @@
 import TelephonySettings from './TelephonySettings.vue'
 import ExotelSettings from './ExotelSettings.vue'
 import TwilioSettings from './TwilioSettings.vue'
+import FreePBXSettings from './FreePBXSettings.vue'
 import { ref } from 'vue'
 
 const step = ref('telephony-settings')

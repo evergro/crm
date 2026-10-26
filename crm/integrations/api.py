@@ -29,19 +29,34 @@ def _get_recording_credentials(telephony_medium: str) -> tuple | None:
 		s = frappe.get_single("CRM Exotel Settings")
 		token = s.get_password("api_token", raise_exception=False)
 		return (s.api_key, token) if s.api_key and token else None
+
 	# manual or unrecognized medium: no provider auth to apply
 	return None
 
 
+
 @frappe.whitelist()
 def is_call_integration_enabled():
+	freepbx_enabled = False
+
+	if frappe.db.exists("DocType", "FreePBX Settings"):
+		freepbx_enabled = bool(
+			frappe.db.get_single_value("FreePBX Settings", "enabled")
+		)
+
 	return {
 		"integrations": {
-			"twilio": bool(frappe.db.get_single_value("CRM Twilio Settings", "enabled")),
-			"exotel": bool(frappe.db.get_single_value("CRM Exotel Settings", "enabled")),
+			"twilio": bool(
+				frappe.db.get_single_value("CRM Twilio Settings", "enabled")
+			),
+			"exotel": bool(
+				frappe.db.get_single_value("CRM Exotel Settings", "enabled")
+			),
+			"freepbx": freepbx_enabled,
 		},
 		"default_calling_medium": get_user_default_calling_medium(),
 	}
+
 
 
 def get_user_default_calling_medium():

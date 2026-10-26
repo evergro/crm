@@ -656,6 +656,7 @@ const articles = ref([
     subArticles: [
       { name: 'twilio', title: __('Twilio') },
       { name: 'exotel', title: __('Exotel') },
+      { name: 'freepbx', title: __('FreePBX') },
       { name: 'whatsapp', title: __('WhatsApp') },
       { name: 'erpnext', title: __('ERPNext') },
     ],

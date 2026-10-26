@@ -24,7 +24,7 @@
           v-model="callMedium"
           type="select"
           :label="__('Calling Medium')"
-          ::options="enabledIntegrations.map(({ label }) => label)"
+          :options="enabledIntegrations.map(({ label }) => label)"
         />
         <div class="flex flex-col gap-1">
           <FormControl

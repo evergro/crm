@@ -256,6 +256,12 @@ import {
 } from 'sip.js'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  startRingback,
+  startRingtone,
+  stopTones,
+  unlockAudio,
+} from '@/components/Telephony/freepbxTones'
 
 /*
  * FreePBX / Asterisk softphone for Frappe CRM.
@@ -280,6 +286,7 @@ let stopping = false
 let answered = false
 let endedByUs = false
 let failureCode = null
+let ringbackStarted = false // local ringback is playing (or early media took over)
 let autoCloseTimer = null
 let lastLog = { number: '', direction: '' }
 let logPromise = Promise.resolve(null) // resolves to the CRM Call Log name
@@ -549,6 +556,7 @@ async function setup() {
 
   window.__freepbxActive = true
   stopping = false
+  unlockAudio()
   remoteAudio = new Audio()
   remoteAudio.autoplay = true
 
@@ -674,22 +682,31 @@ function outcome(direction) {
 }
 
 function finishCall(uiStatus, logStatus) {
+  stopTones()
+
   if (uiStatus === 'Call ended') {
     callDuration.value = counterUp.value?.updatedTime || '00:00'
   }
+
   counterUp.value?.stop()
   callStatus.value = uiStatus
   muted.value = false
-  if (remoteAudio) remoteAudio.srcObject = null
+
+  if (remoteAudio) {
+    remoteAudio.pause()
+    remoteAudio.srcObject = null
+  }
+
   updateLog(logStatus)
   log.value = `Call ended (${uiStatus}).`
   session = null
 
-  // calls that never connected have nothing to annotate: close by themselves
   if (!wasConnected.value) {
     clearTimeout(autoCloseTimer)
     autoCloseTimer = setTimeout(() => {
-      if (isEnded.value && !wasConnected.value) closeCallPopup()
+      if (isEnded.value && !wasConnected.value) {
+        closeCallPopup()
+      }
     }, 4000)
   }
 }
@@ -699,6 +716,7 @@ function trackSession(s, direction) {
     if (s !== session) return
 
     if (state === SessionState.Established) {
+      stopTones()
       answered = true
       wasConnected.value = true
       callStatus.value = 'In progress'
@@ -716,6 +734,8 @@ function trackSession(s, direction) {
 }
 
 function resetForNewCall() {
+  stopTones()
+  ringbackStarted = false
   closeCallPopup()
   answered = false
   endedByUs = false
@@ -742,6 +762,7 @@ function handleIncomingCall(invitation) {
   setPhone(from)
   callStatus.value = 'Incoming call...'
   openPopup()
+  startRingtone()
 
   startLog(from, 'Incoming')
   trackSession(invitation, 'Incoming')
@@ -749,6 +770,7 @@ function handleIncomingCall(invitation) {
 
 async function acceptIncomingCall() {
   if (!session) return
+  stopTones()
   log.value = 'Accepted incoming call.'
   callStatus.value = 'Connecting...'
   try {
@@ -760,6 +782,8 @@ async function acceptIncomingCall() {
 
 function rejectIncomingCall() {
   if (!session) return
+
+  stopTones()
   endedByUs = true
   log.value = 'Rejected incoming call'
   session.reject({ statusCode: 603 }).catch(() => {})
@@ -770,6 +794,7 @@ function rejectIncomingCall() {
 /* ------------------------------------------------------------------ */
 
 async function makeOutgoingCall(number) {
+  unlockAudio()
   if (!ua || !registerer || registerer.state !== RegistererState.Registered) {
     toast.error(__('FreePBX is not connected. Check your extension settings.'))
     return
@@ -793,7 +818,10 @@ async function makeOutgoingCall(number) {
   const inviter = new Inviter(
     ua,
     UserAgent.makeURI(`sip:${dial}@${config.domain}`),
-    sessionOptions(),
+    {
+      ...sessionOptions(),
+      earlyMedia: true,
+    },
   )
   session = inviter
 
@@ -809,9 +837,21 @@ async function makeOutgoingCall(number) {
       requestDelegate: {
         onProgress: (response) => {
           const code = response.message.statusCode
-          if (code === 180 || code === 183) {
-            callStatus.value = 'Ringing...'
-            updateLog('Ringing')
+
+          if (code !== 180 && code !== 183) return
+
+          callStatus.value = 'Ringing...'
+          updateLog('Ringing')
+
+          if (code === 183 && response.message.body) {
+            // The provider is supplying early media.
+            stopTones()
+            ringbackStarted = false
+            attachRemoteAudio(inviter)
+          } else if (!ringbackStarted) {
+            // No early-media audio: generate local ringback.
+            ringbackStarted = true
+            startRingback()
           }
         },
         onReject: (response) => {
@@ -842,8 +882,11 @@ function toggleMute() {
 // Hang up / cancel, depending on the session state
 function endSession() {
   if (!session) return
+
+  stopTones()
   endedByUs = true
   log.value = 'Ending call'
+
   try {
     if (session.state === SessionState.Established) {
       session.bye().catch(() => {})
